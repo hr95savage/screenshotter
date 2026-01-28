@@ -13,23 +13,7 @@ git branch -M main
 git push -u origin main
 ```
 
-## Vercel Deployment
-
-⚠️ **Important Limitations:**
-
-This Flask app uses Playwright which has special requirements:
-- Playwright needs browser binaries installed
-- Screenshot tasks can be long-running (may exceed Vercel's 10s timeout for Hobby plan, 60s for Pro)
-- File storage is ephemeral in serverless functions
-
-### Option 1: Vercel with Playwright (Advanced)
-
-You'll need to:
-1. Install Playwright browsers in the build process
-2. Use Vercel Pro plan for longer timeouts
-3. Consider using external storage (S3, etc.) for screenshots
-
-## Railway Deployment (recommended for full app)
+## Railway Deployment (recommended)
 
 The repo includes a **Dockerfile** and **railway.json** so you can deploy the full screenshot app (with Playwright) to Railway and get a live URL.
 
@@ -53,20 +37,6 @@ The repo includes a **Dockerfile** and **railway.json** so you can deploy the fu
 ### Notes
 
 - First deploy can take a few minutes (installing Chromium).
-- Screenshots are stored on the container; they’re lost on redeploy unless you add persistent storage.
+- Screenshots are stored on the container; they're lost on redeploy unless you add persistent storage.
 - Free tier has usage limits; check [Railway pricing](https://railway.app/pricing).
 - **If you see "Executable doesn't exist" for Chromium:** In Railway → your service → **Settings** → ensure **Builder** is **Dockerfile** (not Nixpacks). Then redeploy.
-
-### Vercel Setup (if proceeding):
-
-1. Install Vercel CLI:
-```bash
-npm i -g vercel
-```
-
-2. Deploy:
-```bash
-vercel
-```
-
-3. You may need to modify the app to work within Vercel's serverless constraints.

@@ -12,6 +12,7 @@ ENV/
 # Screenshots
 screenshots/
 *.png
+!static/logo.png
 *.zip
 screenshot_log.txt
 
@@ -24,7 +25,3 @@ screenshot_log.txt
 # OS
 .DS_Store
 Thumbs.db
-
-# Vercel
-.vercel
-.vercel
