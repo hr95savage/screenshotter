@@ -102,6 +102,28 @@
             color: #737373;
         }
 
+        textarea {
+            width: 100%;
+            padding: 12px 14px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-family: ui-monospace, monospace;
+            color: #e5e5e5;
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #525252;
+        }
+
+        textarea::placeholder {
+            color: #737373;
+        }
+
         .radio-group {
             display: flex;
             gap: 12px;
@@ -369,15 +391,24 @@
             <p class="subtitle">Capture full-page screenshots of any website</p>
 
             <form id="screenshotForm">
-                <div class="form-group">
+                <div class="form-group" id="singleUrlGroup">
                     <label for="url">Website URL</label>
                     <input
                         type="url"
                         id="url"
                         name="url"
                         placeholder="https://example.com"
-                        required
                     >
+                </div>
+
+                <div class="form-group form-group-list" id="listUrlsGroup" style="display: none;">
+                    <label for="urlList">List of URLs (one per line)</label>
+                    <textarea
+                        id="urlList"
+                        name="urlList"
+                        rows="6"
+                        placeholder="https://example.com/page1&#10;https://example.com/page2&#10;https://other.com/about"
+                    ></textarea>
                 </div>
 
                 <div class="form-group">
@@ -390,6 +421,10 @@
                         <div class="radio-option">
                             <input type="radio" id="mode-entire" name="mode" value="entire">
                             <label for="mode-entire">Entire Website</label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="mode-list" name="mode" value="list">
+                            <label for="mode-list">List of URLs</label>
                         </div>
                     </div>
                 </div>
@@ -427,17 +462,48 @@
         let currentTaskId = null;
         let statusCheckInterval = null;
 
+        function toggleModeInputs() {
+            const mode = document.querySelector('input[name="mode"]:checked').value;
+            const singleGroup = document.getElementById('singleUrlGroup');
+            const listGroup = document.getElementById('listUrlsGroup');
+            singleGroup.style.display = mode === 'list' ? 'none' : 'block';
+            listGroup.style.display = mode === 'list' ? 'block' : 'none';
+        }
+
+        document.querySelectorAll('input[name="mode"]').forEach(radio => {
+            radio.addEventListener('change', toggleModeInputs);
+        });
+        toggleModeInputs();
+
         document.getElementById('screenshotForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const url = document.getElementById('url').value;
             const mode = document.querySelector('input[name="mode"]:checked').value;
+            const url = document.getElementById('url').value.trim();
+            const urlListText = document.getElementById('urlList').value.trim();
+            const urlList = urlListText ? urlListText.split(/\n/).map(s => s.trim()).filter(s => s && (s.startsWith('http://') || s.startsWith('https://'))) : [];
             const submitBtn = document.getElementById('submitBtn');
             const progressContainer = document.getElementById('progressContainer');
             const progressOutput = document.getElementById('progressOutput');
             const statusEl = document.getElementById('status');
             const screenshotsContainer = document.getElementById('screenshotsContainer');
             const screenshotsGrid = document.getElementById('screenshotsGrid');
+
+            if (mode === 'list') {
+                if (urlList.length === 0) {
+                    progressContainer.classList.add('active');
+                    progressOutput.innerHTML = '';
+                    statusEl.textContent = 'Error: Enter at least one URL (one per line, http:// or https://)';
+                    statusEl.className = 'status error';
+                    return;
+                }
+            } else if (!url) {
+                progressContainer.classList.add('active');
+                progressOutput.innerHTML = '';
+                statusEl.textContent = 'Error: URL is required';
+                statusEl.className = 'status error';
+                return;
+            }
 
             submitBtn.disabled = true;
             submitBtn.textContent = 'Processing...';
@@ -448,11 +514,13 @@
             statusEl.textContent = 'Processing...';
             statusEl.className = 'status';
 
+            const body = mode === 'list' ? { urls: urlList, mode: 'list' } : { url, mode };
+
             try {
                 const response = await fetch('/api/screenshot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, mode }),
+                    body: JSON.stringify(body),
                 });
 
                 const data = await response.json();

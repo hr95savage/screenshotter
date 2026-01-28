@@ -24,8 +24,8 @@ SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 running_tasks = {}
 
 
-def run_screenshot_task(task_id, url, mode, output_dir):
-    """Run screenshot task in background"""
+def run_screenshot_task(task_id, url, mode, output_dir, url_list=None):
+    """Run screenshot task in background. For mode 'list', url_list is a list of URL strings."""
     try:
         script_path = BASE_DIR / "screenshot_sitemap.py"
         venv_python = BASE_DIR / "venv" / "bin" / "python"
@@ -38,6 +38,14 @@ def run_screenshot_task(task_id, url, mode, output_dir):
         
         if mode == "single":
             cmd = [python_cmd, str(script_path), "--url", url, "-o", output_dir]
+        elif mode == "list" and url_list:
+            urls_file = Path(output_dir) / "urls.txt"
+            with open(urls_file, "w", encoding="utf-8") as f:
+                for u in url_list:
+                    u = (u or "").strip()
+                    if u and (u.startswith("http://") or u.startswith("https://")):
+                        f.write(u + "\n")
+            cmd = [python_cmd, str(script_path), "--urls-file", str(urls_file), "-o", output_dir]
         else:  # entire website
             cmd = [python_cmd, str(script_path), url, "-o", output_dir]
         
@@ -90,10 +98,18 @@ def index():
 def start_screenshot():
     """Start a screenshot task"""
     data = request.json
-    url = data.get('url', '').strip()
-    mode = data.get('mode', 'single')  # 'single' or 'entire'
+    url = (data.get('url') or '').strip()
+    mode = data.get('mode', 'single')  # 'single', 'entire', or 'list'
+    url_list = data.get('urls')  # for mode 'list': list of URL strings
     
-    if not url:
+    if mode == 'list':
+        if not url_list or not isinstance(url_list, list):
+            return jsonify({"error": "List mode requires 'urls' (array of URLs)"}), 400
+        # Normalize: strings only, strip, require http(s)
+        url_list = [u.strip() for u in url_list if isinstance(u, str) and u.strip().startswith(('http://', 'https://'))]
+        if not url_list:
+            return jsonify({"error": "Provide at least one valid URL (http:// or https://) in the list"}), 400
+    elif not url:
         return jsonify({"error": "URL is required"}), 400
     
     # Create unique task ID
@@ -107,7 +123,8 @@ def start_screenshot():
     # Start background task
     thread = threading.Thread(
         target=run_screenshot_task,
-        args=(task_id, url, mode, output_dir)
+        args=(task_id, url, mode, output_dir),
+        kwargs={'url_list': url_list if mode == 'list' else None}
     )
     thread.daemon = True
     thread.start()

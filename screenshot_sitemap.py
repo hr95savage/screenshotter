@@ -429,6 +429,12 @@ Examples:
     )
     
     parser.add_argument(
+        '--urls-file',
+        metavar='PATH',
+        help='Path to a file with one URL per line (screenshot each)'
+    )
+    
+    parser.add_argument(
         '-o', '--output',
         default='screenshots',
         help='Output directory for screenshots (default: screenshots)'
@@ -485,6 +491,50 @@ Examples:
             else:
                 print("\n✗ Failed to take screenshot")
                 sys.exit(1)
+    elif args.urls_file:
+        # Screenshot each URL from the list file
+        urls_path = Path(args.urls_file)
+        if not urls_path.exists():
+            print(f"Error: URLs file not found: {urls_path}")
+            sys.exit(1)
+        urls = []
+        with open(urls_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and (line.startswith('http://') or line.startswith('https://')):
+                    urls.append(line)
+        if not urls:
+            print("Error: No valid URLs found in file (one URL per line, http:// or https://)")
+            sys.exit(1)
+        output_path = Path(args.output)
+        output_path.mkdir(parents=True, exist_ok=True)
+        print(f"Screenshotting {len(urls)} URLs from list")
+        if args.max_pages:
+            urls = urls[:args.max_pages]
+            print(f"Limiting to {args.max_pages} pages")
+        if args.start_from > 0:
+            urls = urls[args.start_from:]
+            print(f"Starting from index {args.start_from}")
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=not args.no_headless)
+            context = browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            )
+            page = context.new_page()
+            successful = 0
+            failed = 0
+            for i, url in enumerate(urls, 1):
+                print(f"\n[{i}/{len(urls)}] Processing: {url}")
+                result = take_screenshot(page, url, output_path, args.wait_time)
+                if result:
+                    successful += 1
+                else:
+                    failed += 1
+            browser.close()
+            print(f"\n{'='*60}")
+            print(f"Complete! Successful: {successful}, Failed: {failed}, Total: {len(urls)}")
+            print(f"Screenshots saved to: {output_path.absolute()}")
     elif args.sitemap:
         screenshot_sitemap(
             sitemap_path=args.sitemap,
@@ -495,7 +545,7 @@ Examples:
             start_from=args.start_from
         )
     else:
-        parser.error("Either provide a sitemap/homepage URL or use --url to screenshot a single URL")
+        parser.error("Provide a sitemap/homepage URL, use --url for a single URL, or --urls-file for a list")
 
 
 if __name__ == '__main__':
