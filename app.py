@@ -13,13 +13,22 @@ from pathlib import Path
 from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
 from flask_cors import CORS
 
-app = Flask(__name__)
+# Determine template and static folders based on environment
+if os.environ.get('VERCEL') == '1':
+    # In Vercel, paths are relative to the api directory
+    template_folder = str(Path(__file__).parent.parent / 'templates')
+    static_folder = str(Path(__file__).parent.parent / 'static')
+else:
+    template_folder = 'templates'
+    static_folder = 'static'
+
+app = Flask(__name__, template_folder=template_folder, static_folder=static_folder)
 CORS(app)
 
 # Get the directory where this script is located
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.resolve()
 # In Vercel, use /tmp for writable storage
-if os.environ.get('VERCEL'):
+if os.environ.get('VERCEL') == '1':
     SCREENSHOTS_DIR = Path('/tmp') / "screenshots"
 else:
     SCREENSHOTS_DIR = BASE_DIR / "screenshots"
@@ -96,6 +105,14 @@ def index():
 @app.route('/api/screenshot', methods=['POST'])
 def start_screenshot():
     """Start a screenshot task"""
+    # Check if running on Vercel
+    if os.environ.get('VERCEL') == '1':
+        return jsonify({
+            "error": "Screenshot functionality is not available on Vercel",
+            "message": "Playwright requires browser binaries and longer execution times than Vercel's serverless functions support. Please use a platform like Railway, Render, or Fly.io for full functionality.",
+            "suggestion": "Deploy to Railway.app or Render.com for full screenshot capabilities"
+        }), 503
+    
     data = request.json
     url = data.get('url', '').strip()
     mode = data.get('mode', 'single')  # 'single' or 'entire'
@@ -109,7 +126,7 @@ def start_screenshot():
     
     # Create output directory for this task
     output_dir = str(SCREENSHOTS_DIR / task_id)
-    Path(output_dir).mkdir(exist_ok=True)
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
     
     # Start background task
     thread = threading.Thread(

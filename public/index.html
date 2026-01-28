@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Tool</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        h1 { color: #333; margin-bottom: 10px; font-size: 2em; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 0.95em; }
+        .form-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; color: #333; font-weight: 500; font-size: 0.95em; }
+        input[type="url"] {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+        input[type="url"]:focus { outline: none; border-color: #667eea; }
+        .radio-group { display: flex; gap: 20px; margin-top: 10px; }
+        .radio-option { flex: 1; position: relative; }
+        .radio-option input[type="radio"] { position: absolute; opacity: 0; }
+        .radio-option label {
+            display: block;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+        .radio-option input[type="radio"]:checked + label {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        .radio-option label:hover { border-color: #667eea; }
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4); }
+        .notice {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+        .notice.show { display: block; }
+        .notice strong { display: block; margin-bottom: 8px; }
+        .notice a { color: #b45309; }
+        .notice a:hover { text-decoration: underline; }
+        .notice code { font-size: 0.85em; background: #f3f4f6; padding: 2px 6px; border-radius: 4px; word-break: break-all; display: block; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Screenshot Tool</h1>
+        <p class="subtitle">Capture full-page screenshots of websites</p>
+
+        <form id="screenshotForm">
+            <div class="form-group">
+                <label for="url">Website URL</label>
+                <input type="url" id="url" name="url" placeholder="https://example.com" required>
+            </div>
+            <div class="form-group">
+                <label>Screenshot Mode</label>
+                <div class="radio-group">
+                    <div class="radio-option">
+                        <input type="radio" id="mode-single" name="mode" value="single" checked>
+                        <label for="mode-single">Single URL</label>
+                    </div>
+                    <div class="radio-option">
+                        <input type="radio" id="mode-entire" name="mode" value="entire">
+                        <label for="mode-entire">Entire Website</label>
+                    </div>
+                </div>
+            </div>
+            <button type="submit" id="submitBtn">Start Screenshot</button>
+        </form>
+
+        <div class="notice" id="vercelNotice">
+            <strong>⚠️ Screenshots not available here</strong>
+            This demo runs on Vercel, which doesn't support Playwright or long-running tasks.
+            <br><br>
+            <strong>Run locally:</strong>
+            <code>git clone https://github.com/hr95savage/screenshotter && cd screenshotter && pip install -r requirements.txt && playwright install chromium && python app.py</code>
+            <br><br>
+            Or deploy the full app to <a href="https://railway.app" target="_blank">Railway</a>, <a href="https://render.com" target="_blank">Render</a>, or <a href="https://fly.io" target="_blank">Fly.io</a>.
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('screenshotForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            document.getElementById('vercelNotice').classList.add('show');
+        });
+    </script>
+</body>
+</html>
