@@ -1,0 +1,17 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.venv
+env/
+ENV/
+.git
+.gitignore
+.vercel
+.vercelignore
+*.md
+screenshots/
+*.png
+*.zip
+screenshot_log.txt
+.DS_Store

@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="vercel-ui" content="form-first">
     <title>Screenshot Tool</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -109,13 +110,12 @@
         </form>
 
         <div class="notice" id="vercelNotice">
-            <strong>⚠️ Screenshots not available here</strong>
-            This demo runs on Vercel, which doesn't support Playwright or long-running tasks.
+            <strong>⚠️ Screenshots aren’t available on this demo</strong>
+            Use the full app (real screenshots) here:
             <br><br>
-            <strong>Run locally:</strong>
-            <code>git clone https://github.com/hr95savage/screenshotter && cd screenshotter && pip install -r requirements.txt && playwright install chromium && python app.py</code>
+            <strong>→ <a href="https://screenshotter-production-a568.up.railway.app" target="_blank">screenshotter-production-a568.up.railway.app</a></strong>
             <br><br>
-            Or deploy the full app to <a href="https://railway.app" target="_blank">Railway</a>, <a href="https://render.com" target="_blank">Render</a>, or <a href="https://fly.io" target="_blank">Fly.io</a>.
+            Or run locally: <code>git clone https://github.com/hr95savage/screenshotter && cd screenshotter && pip install -r requirements.txt && playwright install chromium && python app.py</code>
         </div>
     </div>
 

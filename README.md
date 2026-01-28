@@ -36,13 +36,24 @@ The tool includes a beautiful web interface for easy use:
 python app.py
 ```
 
-2. Open your browser to `http://localhost:5000`
+2. Open your browser to `http://localhost:5001` (or the port shown in the terminal)
 
 3. Enter a URL and choose:
    - **Single URL**: Screenshot just one page
    - **Entire Website**: Auto-discover sitemap and screenshot all pages
 
 The interface shows real-time progress and displays all screenshots when complete!
+
+## Deploy to Railway (live URL)
+
+Deploy the full app (real screenshots) to Railway and get a public URL:
+
+1. Go to [railway.app](https://railway.app) and sign in.
+2. **New Project** → **Deploy from GitHub** → select this repo.
+3. After the build finishes, open your service → **Settings** → **Networking** → **Generate Domain**.
+4. Open the generated URL to use the full app. Live demo: **https://screenshotter-production-a568.up.railway.app**
+
+The repo includes a `Dockerfile` and `railway.json`; Railway will build and run the app with Playwright.
 
 ## Usage
 
