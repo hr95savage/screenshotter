@@ -314,6 +314,14 @@
     <div class="container">
         <h1>📸 Screenshot Tool</h1>
         <p class="subtitle">Capture full-page screenshots of websites</p>
+        {% if is_vercel %}
+        <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
+            <strong>⚠️ Limited Functionality on Vercel</strong><br>
+            Screenshot functionality requires Playwright browsers which aren't available in Vercel's serverless environment. 
+            For full functionality, deploy to <a href="https://railway.app" target="_blank">Railway</a>, 
+            <a href="https://render.com" target="_blank">Render</a>, or <a href="https://fly.io" target="_blank">Fly.io</a>.
+        </div>
+        {% endif %}
 
         <form id="screenshotForm">
             <div class="form-group">

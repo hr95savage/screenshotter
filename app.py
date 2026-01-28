@@ -18,8 +18,12 @@ CORS(app)
 
 # Get the directory where this script is located
 BASE_DIR = Path(__file__).parent
-SCREENSHOTS_DIR = BASE_DIR / "screenshots"
-SCREENSHOTS_DIR.mkdir(exist_ok=True)
+# In Vercel, use /tmp for writable storage
+if os.environ.get('VERCEL'):
+    SCREENSHOTS_DIR = Path('/tmp') / "screenshots"
+else:
+    SCREENSHOTS_DIR = BASE_DIR / "screenshots"
+SCREENSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # Store running processes
 running_tasks = {}
@@ -84,7 +88,9 @@ def run_screenshot_task(task_id, url, mode, output_dir):
 @app.route('/')
 def index():
     """Serve the main page"""
-    return render_template('index.html')
+    # Check if running on Vercel
+    is_vercel = os.environ.get('VERCEL') == '1'
+    return render_template('index.html', is_vercel=is_vercel)
 
 
 @app.route('/api/screenshot', methods=['POST'])
