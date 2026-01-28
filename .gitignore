@@ -24,3 +24,7 @@ screenshot_log.txt
 # OS
 .DS_Store
 Thumbs.db
+
+# Vercel
+.vercel
+.vercel
