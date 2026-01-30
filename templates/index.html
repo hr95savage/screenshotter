@@ -236,23 +236,7 @@
             white-space: pre-wrap;
         }
 
-        .screenshots-container {
-            display: none;
-            margin-top: 16px;
-        }
-
-        .screenshots-container.active {
-            display: block;
-        }
-
-        .screenshots-container h3 {
-            font-size: 0.95rem;
-            color: #d4d4d4;
-            margin-bottom: 12px;
-        }
-
         .download-all-btn {
-            margin-bottom: 16px;
             padding: 10px 20px;
             background: #262626;
             color: #fff;
@@ -266,117 +250,6 @@
 
         .download-all-btn:hover {
             background: #333;
-        }
-
-        .screenshots-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 12px;
-        }
-
-        .screenshot-item {
-            position: relative;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 1px solid #262626;
-            cursor: pointer;
-            transition: transform 0.2s, border-color 0.2s;
-        }
-
-        .screenshot-item:hover {
-            transform: scale(1.02);
-            border-color: #404040;
-        }
-
-        .screenshot-item img {
-            width: 100%;
-            height: auto;
-            display: block;
-        }
-
-        .screenshot-item .filename {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.85);
-            color: #d4d4d4;
-            padding: 6px 8px;
-            font-size: 0.7rem;
-            text-overflow: ellipsis;
-            overflow: hidden;
-            white-space: nowrap;
-        }
-
-        .download-btn {
-            position: absolute;
-            top: 6px;
-            right: 6px;
-            background: rgba(0, 0, 0, 0.7);
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 6px 10px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-
-        .screenshot-item:hover .download-btn {
-            opacity: 1;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal.active {
-            display: flex;
-        }
-
-        .modal-content {
-            max-width: 90%;
-            max-height: 90%;
-            background: #141414;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 16px;
-            position: relative;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            background: #333;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            width: 32px;
-            height: 32px;
-            cursor: pointer;
-            font-size: 1.2rem;
-        }
-
-        .modal-close:hover {
-            background: #404040;
-        }
-
-        .modal-content img {
-            max-width: 100%;
-            max-height: 80vh;
-            display: block;
-            border-radius: 4px;
         }
     </style>
 </head>
@@ -436,27 +309,14 @@
                 <div class="progress-header">
                     <span class="status" id="status">Processing...</span>
                     <span id="screenshotCount"></span>
+                    <button class="download-all-btn" onclick="downloadAll()" id="downloadAllBtn" style="display: none;">
+                        Download All as ZIP
+                    </button>
                 </div>
                 <div class="progress-output" id="progressOutput"></div>
-                <div class="screenshots-container" id="screenshotsContainer">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h3 style="margin: 0;">Screenshots</h3>
-                        <button class="download-all-btn" onclick="downloadAll()" id="downloadAllBtn">
-                            Download All as ZIP
-                        </button>
-                    </div>
-                    <div class="screenshots-grid" id="screenshotsGrid"></div>
-                </div>
             </div>
         </div>
     </main>
-
-    <div class="modal" id="modal">
-        <div class="modal-content">
-            <button class="modal-close" onclick="closeModal()">×</button>
-            <img id="modalImage" src="" alt="Screenshot">
-        </div>
-    </div>
 
     <script>
         let currentTaskId = null;
@@ -486,8 +346,6 @@
             const progressContainer = document.getElementById('progressContainer');
             const progressOutput = document.getElementById('progressOutput');
             const statusEl = document.getElementById('status');
-            const screenshotsContainer = document.getElementById('screenshotsContainer');
-            const screenshotsGrid = document.getElementById('screenshotsGrid');
 
             if (mode === 'list') {
                 if (urlList.length === 0) {
@@ -509,8 +367,7 @@
             submitBtn.textContent = 'Processing...';
             progressContainer.classList.add('active');
             progressOutput.innerHTML = '';
-            screenshotsContainer.classList.remove('active');
-            screenshotsGrid.innerHTML = '';
+            document.getElementById('downloadAllBtn').style.display = 'none';
             statusEl.textContent = 'Processing...';
             statusEl.className = 'status';
 
@@ -555,7 +412,7 @@
                             submitBtn.disabled = false;
                             submitBtn.textContent = 'Start Screenshot';
                             if (data.status === 'completed') {
-                                loadScreenshots();
+                                document.getElementById('downloadAllBtn').style.display = 'inline-block';
                                 setTimeout(() => {
                                     if (confirm(`Screenshots completed! Download all ${data.screenshot_count} as ZIP?`)) {
                                         downloadAll();
@@ -574,68 +431,32 @@
             const progressOutput = document.getElementById('progressOutput');
             const statusEl = document.getElementById('status');
             const screenshotCountEl = document.getElementById('screenshotCount');
+            const downloadAllBtn = document.getElementById('downloadAllBtn');
             if (data.status === 'completed') {
                 statusEl.textContent = 'Completed';
                 statusEl.className = 'status completed';
+                downloadAllBtn.style.display = 'inline-block';
             } else if (data.status === 'error') {
                 statusEl.textContent = 'Error';
                 statusEl.className = 'status error';
+                downloadAllBtn.style.display = 'none';
             } else {
                 statusEl.textContent = 'Processing...';
                 statusEl.className = 'status';
             }
-            if (data.screenshot_count) {
+            if (data.screenshot_count !== undefined) {
                 screenshotCountEl.textContent = `${data.screenshot_count} screenshot(s)`;
             }
-            if (data.output && data.output.length > 0) {
-                progressOutput.innerHTML = data.output
+            let lines = data.output || [];
+            if (data.status === 'error' && data.error) {
+                lines = [...lines, '---', data.error, 'Check your server logs for full details.'];
+            }
+            if (lines.length > 0) {
+                progressOutput.innerHTML = lines
                     .map(line => `<div class="line">${escapeHtml(line)}</div>`)
                     .join('');
                 progressOutput.scrollTop = progressOutput.scrollHeight;
             }
-        }
-
-        async function loadScreenshots() {
-            if (!currentTaskId) return;
-            try {
-                const response = await fetch(`/api/screenshots/${currentTaskId}`);
-                const data = await response.json();
-                if (response.ok && data.screenshots && data.screenshots.length > 0) {
-                    const screenshotsContainer = document.getElementById('screenshotsContainer');
-                    const screenshotsGrid = document.getElementById('screenshotsGrid');
-                    screenshotsContainer.classList.add('active');
-                    screenshotsGrid.innerHTML = data.screenshots.map(screenshot => {
-                        const safeFilename = escapeHtml(screenshot.filename);
-                        const encodedFilename = encodeURIComponent(screenshot.filename);
-                        return `
-                        <div class="screenshot-item" onclick="openModal('${encodedFilename}')">
-                            <button class="download-btn" onclick="event.stopPropagation(); downloadScreenshot('${encodedFilename}')" title="Download">Download</button>
-                            <img src="/api/screenshots/${currentTaskId}/${encodedFilename}" alt="${safeFilename}" loading="lazy">
-                            <div class="filename">${safeFilename}</div>
-                        </div>
-                    `;
-                    }).join('');
-                }
-            } catch (error) {
-                console.error('Error loading screenshots:', error);
-            }
-        }
-
-        function openModal(filename) {
-            const modal = document.getElementById('modal');
-            const modalImage = document.getElementById('modalImage');
-            const encodedFilename = encodeURIComponent(decodeURIComponent(filename));
-            modalImage.src = `/api/screenshots/${currentTaskId}/${encodedFilename}`;
-            modal.classList.add('active');
-        }
-
-        function closeModal() {
-            document.getElementById('modal').classList.remove('active');
-        }
-
-        function downloadScreenshot(filename) {
-            if (!currentTaskId) return;
-            window.location.href = `/api/download/${currentTaskId}/${filename}`;
         }
 
         function downloadAll() {
@@ -655,10 +476,6 @@
             div.textContent = text;
             return div.innerHTML;
         }
-
-        document.getElementById('modal').addEventListener('click', (e) => {
-            if (e.target.id === 'modal') closeModal();
-        });
     </script>
 </body>
 </html>

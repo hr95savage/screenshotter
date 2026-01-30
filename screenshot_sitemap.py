@@ -8,6 +8,7 @@ import argparse
 import os
 import sys
 import time
+import traceback
 import urllib.parse
 from pathlib import Path
 from typing import List, Optional
@@ -549,4 +550,10 @@ Examples:
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        traceback.print_exc(file=sys.stderr)
+        sys.exit(1)

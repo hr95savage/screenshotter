@@ -3,15 +3,23 @@
 Flask web server for the screenshot tool
 """
 
+import logging
 import os
 import subprocess
+import sys
 import threading
-import json
+import traceback
 import zipfile
-import shutil
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, send_from_directory, send_file
+from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    stream=sys.stderr,
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app)
@@ -80,12 +88,27 @@ def run_screenshot_task(task_id, url, mode, output_dir, url_list=None):
         # Count screenshots
         screenshot_count = len(list(Path(output_dir).glob("*.png")))
         
-        running_tasks[task_id]["status"] = "completed"
-        running_tasks[task_id]["screenshot_count"] = screenshot_count
+        if process.returncode != 0:
+            running_tasks[task_id]["status"] = "error"
+            last_output = running_tasks[task_id]["output"][-15:] if running_tasks[task_id]["output"] else []
+            err_msg = f"Process exited with code {process.returncode}."
+            if last_output:
+                err_msg += " Last output:\n" + "\n".join(last_output)
+            running_tasks[task_id]["error"] = err_msg
+            logger.error("Screenshot task %s failed: %s", task_id, err_msg)
+        else:
+            running_tasks[task_id]["status"] = "completed"
+            running_tasks[task_id]["screenshot_count"] = screenshot_count
         
     except Exception as e:
-        running_tasks[task_id]["status"] = "error"
-        running_tasks[task_id]["error"] = str(e)
+        tb_lines = traceback.format_exc().strip().split("\n")
+        if task_id not in running_tasks:
+            running_tasks[task_id] = {"status": "error", "error": str(e), "output": [f"Exception: {e}"] + tb_lines}
+        else:
+            running_tasks[task_id]["status"] = "error"
+            running_tasks[task_id]["error"] = str(e)
+            running_tasks[task_id].setdefault("output", []).extend([f"Exception: {e}"] + tb_lines)
+        logger.exception("Screenshot task %s raised exception", task_id)
 
 
 @app.route('/')
