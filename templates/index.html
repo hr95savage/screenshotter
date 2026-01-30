@@ -251,6 +251,29 @@
         .download-all-btn:hover {
             background: #333;
         }
+
+        .progress-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .download-log-btn {
+            padding: 10px 20px;
+            background: #1a1a1a;
+            color: #a3a3a3;
+            border: 1px solid #404040;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .download-log-btn:hover {
+            background: #262626;
+            color: #e5e5e5;
+        }
     </style>
 </head>
 <body>
@@ -309,9 +332,14 @@
                 <div class="progress-header">
                     <span class="status" id="status">Processing...</span>
                     <span id="screenshotCount"></span>
-                    <button class="download-all-btn" onclick="downloadAll()" id="downloadAllBtn" style="display: none;">
-                        Download All as ZIP
-                    </button>
+                    <div class="progress-actions">
+                        <button class="download-log-btn" onclick="downloadFullLog()" id="downloadLogBtn" style="display: none;" title="Download full run log">
+                            Download full log
+                        </button>
+                        <button class="download-all-btn" onclick="downloadAll()" id="downloadAllBtn" style="display: none;">
+                            Download All as ZIP
+                        </button>
+                    </div>
                 </div>
                 <div class="progress-output" id="progressOutput"></div>
             </div>
@@ -368,6 +396,7 @@
             progressContainer.classList.add('active');
             progressOutput.innerHTML = '';
             document.getElementById('downloadAllBtn').style.display = 'none';
+            document.getElementById('downloadLogBtn').style.display = 'inline-block';
             statusEl.textContent = 'Processing...';
             statusEl.className = 'status';
 
@@ -436,10 +465,12 @@
                 statusEl.textContent = 'Completed';
                 statusEl.className = 'status completed';
                 downloadAllBtn.style.display = 'inline-block';
+                document.getElementById('downloadLogBtn').style.display = 'inline-block';
             } else if (data.status === 'error') {
                 statusEl.textContent = 'Error';
                 statusEl.className = 'status error';
                 downloadAllBtn.style.display = 'none';
+                document.getElementById('downloadLogBtn').style.display = 'inline-block';
             } else {
                 statusEl.textContent = 'Processing...';
                 statusEl.className = 'status';
@@ -457,6 +488,11 @@
                     .join('');
                 progressOutput.scrollTop = progressOutput.scrollHeight;
             }
+        }
+
+        function downloadFullLog() {
+            if (!currentTaskId) return;
+            window.location.href = `/api/log/${currentTaskId}`;
         }
 
         function downloadAll() {

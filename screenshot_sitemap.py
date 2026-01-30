@@ -11,7 +11,7 @@ import time
 import traceback
 import urllib.parse
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import xml.etree.ElementTree as ET
 
 from playwright.sync_api import sync_playwright, Browser, Page, TimeoutError as PlaywrightTimeoutError
@@ -189,7 +189,7 @@ def sanitize_filename(url: str) -> str:
     return f"{domain}_{filename}" if filename != 'index' else f"{domain}_index"
 
 
-def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) -> Optional[str]:
+def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) -> Tuple[Optional[str], Optional[str]]:
     """
     Navigate to a URL and take a full page screenshot.
     
@@ -200,7 +200,7 @@ def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) 
         wait_time: Seconds to wait after page load
         
     Returns:
-        Path to saved screenshot or None if failed
+        (path, None) on success, (None, error_reason) on failure
     """
     try:
         print(f"  Navigating to: {url}")
@@ -285,14 +285,16 @@ def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) 
         page.screenshot(path=str(screenshot_path), full_page=True)
         
         print(f"  ✓ Saved: {screenshot_path.name}")
-        return str(screenshot_path)
+        return (str(screenshot_path), None)
         
     except PlaywrightTimeoutError:
-        print(f"  ✗ Timeout loading: {url}")
-        return None
+        reason = "Timeout loading"
+        print(f"  ✗ {reason}: {url}")
+        return (None, reason)
     except Exception as e:
+        reason = str(e)
         print(f"  ✗ Error screenshotting {url}: {e}")
-        return None
+        return (None, reason)
 
 
 def screenshot_sitemap(
@@ -367,16 +369,16 @@ def screenshot_sitemap(
         
         # Screenshot each URL
         successful = 0
-        failed = 0
+        failed_list: List[Tuple[str, str]] = []
         
         for i, url in enumerate(urls, 1):
             print(f"\n[{i}/{len(urls)}] Processing: {url}")
-            result = take_screenshot(page, url, output_path, wait_time)
+            path, err = take_screenshot(page, url, output_path, wait_time)
             
-            if result:
+            if path:
                 successful += 1
             else:
-                failed += 1
+                failed_list.append((url, err or "Unknown error"))
         
         browser.close()
         
@@ -384,9 +386,14 @@ def screenshot_sitemap(
         print(f"\n{'='*60}")
         print(f"Complete!")
         print(f"  Successful: {successful}")
-        print(f"  Failed: {failed}")
+        print(f"  Failed: {len(failed_list)}")
         print(f"  Total: {len(urls)}")
         print(f"  Screenshots saved to: {output_path.absolute()}")
+        if failed_list:
+            print(f"\nFailed URLs ({len(failed_list)}):")
+            for url, reason in failed_list:
+                print(f"  - {url}")
+                print(f"    Reason: {reason}")
 
 
 def main():
@@ -484,13 +491,13 @@ Examples:
             )
             page = context.new_page()
             
-            result = take_screenshot(page, args.url, output_path, args.wait_time)
+            path, err = take_screenshot(page, args.url, output_path, args.wait_time)
             browser.close()
             
-            if result:
-                print(f"\n✓ Screenshot saved: {result}")
+            if path:
+                print(f"\n✓ Screenshot saved: {path}")
             else:
-                print("\n✗ Failed to take screenshot")
+                print(f"\n✗ Failed to take screenshot: {err}")
                 sys.exit(1)
     elif args.urls_file:
         # Screenshot each URL from the list file
@@ -524,18 +531,23 @@ Examples:
             )
             page = context.new_page()
             successful = 0
-            failed = 0
+            failed_list = []
             for i, url in enumerate(urls, 1):
                 print(f"\n[{i}/{len(urls)}] Processing: {url}")
-                result = take_screenshot(page, url, output_path, args.wait_time)
-                if result:
+                path, err = take_screenshot(page, url, output_path, args.wait_time)
+                if path:
                     successful += 1
                 else:
-                    failed += 1
+                    failed_list.append((url, err or "Unknown error"))
             browser.close()
             print(f"\n{'='*60}")
-            print(f"Complete! Successful: {successful}, Failed: {failed}, Total: {len(urls)}")
+            print(f"Complete! Successful: {successful}, Failed: {len(failed_list)}, Total: {len(urls)}")
             print(f"Screenshots saved to: {output_path.absolute()}")
+            if failed_list:
+                print(f"\nFailed URLs ({len(failed_list)}):")
+                for u, r in failed_list:
+                    print(f"  - {u}")
+                    print(f"    Reason: {r}")
     elif args.sitemap:
         screenshot_sitemap(
             sitemap_path=args.sitemap,

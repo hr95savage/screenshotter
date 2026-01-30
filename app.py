@@ -11,7 +11,7 @@ import threading
 import traceback
 import zipfile
 from pathlib import Path
-from flask import Flask, render_template, request, jsonify, send_file, send_from_directory
+from flask import Flask, Response, render_template, request, jsonify, send_file, send_from_directory
 from flask_cors import CORS
 
 logging.basicConfig(
@@ -78,8 +78,8 @@ def run_screenshot_task(task_id, url, mode, output_dir, url_list=None):
             line = line.strip()
             if line:
                 running_tasks[task_id]["output"].append(line)
-                # Keep only last 100 lines
-                if len(running_tasks[task_id]["output"]) > 100:
+                # Keep last 3000 lines
+                if len(running_tasks[task_id]["output"]) > 3000:
                     running_tasks[task_id]["output"].pop(0)
         
         # Wait for process to complete
@@ -168,7 +168,7 @@ def get_status(task_id):
     task = running_tasks[task_id]
     response = {
         "status": task["status"],
-        "output": task.get("output", [])[-20:],  # Last 20 lines
+        "output": task.get("output", [])[-1500:],  # Last 1500 lines
         "screenshot_count": task.get("screenshot_count", 0)
     }
     
@@ -176,6 +176,20 @@ def get_status(task_id):
         response["error"] = task["error"]
     
     return jsonify(response)
+
+
+@app.route('/api/log/<task_id>')
+def get_log(task_id):
+    """Return full run log as plain text (for download)."""
+    if task_id not in running_tasks:
+        return jsonify({"error": "Task not found"}), 404
+    lines = running_tasks[task_id].get("output", [])
+    text = "\n".join(lines) if lines else "(no log output)"
+    return Response(
+        text,
+        mimetype="text/plain",
+        headers={"Content-Disposition": f"attachment; filename=screenshot_log_{task_id}.txt"},
+    )
 
 
 @app.route('/api/screenshots/<task_id>')
