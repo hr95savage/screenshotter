@@ -221,20 +221,21 @@ def get_screenshot(task_id, filename):
 
 @app.route('/api/download/<task_id>/<filename>')
 def download_screenshot(task_id, filename):
-    """Download a single screenshot file"""
+    """Download a file from the task dir (screenshot or e.g. failed_urls.txt)"""
     task_dir = SCREENSHOTS_DIR / task_id
     if not task_dir.exists():
         return jsonify({"error": "Task directory not found"}), 404
     
     file_path = task_dir / filename
-    if not file_path.exists():
+    if not file_path.exists() or file_path.resolve().parent != task_dir.resolve():
         return jsonify({"error": "File not found"}), 404
     
+    mimetype = "text/plain" if filename.endswith(".txt") else "image/png"
     return send_file(
         str(file_path),
         as_attachment=True,
         download_name=filename,
-        mimetype='image/png'
+        mimetype=mimetype,
     )
 
 
@@ -257,6 +258,9 @@ def download_all(task_id):
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for png_file in png_files:
                 zipf.write(png_file, png_file.name)
+            failed_urls = task_dir / "failed_urls.txt"
+            if failed_urls.exists():
+                zipf.write(failed_urls, failed_urls.name)
         
         return send_file(
             str(zip_path),

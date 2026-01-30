@@ -303,7 +303,8 @@ def screenshot_sitemap(
     headless: bool = True,
     wait_time: int = 2,
     max_pages: Optional[int] = None,
-    start_from: int = 0
+    start_from: int = 0,
+    max_retries: int = 2,
 ):
     """
     Main function to screenshot all pages in a sitemap.
@@ -315,6 +316,7 @@ def screenshot_sitemap(
         wait_time: Seconds to wait after each page load
         max_pages: Maximum number of pages to screenshot (None for all)
         start_from: Index to start from (for resuming)
+        max_retries: Retries per URL on failure (default 2 = 3 total attempts)
     """
     # Check if input is a homepage URL (not a sitemap)
     actual_sitemap_path = sitemap_path
@@ -365,20 +367,28 @@ def screenshot_sitemap(
             viewport={'width': 1920, 'height': 1080},
             user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
         )
-        page = context.new_page()
-        
-        # Screenshot each URL
+        # Screenshot each URL with a fresh page per URL to limit memory use (avoids OOM kill)
         successful = 0
         failed_list: List[Tuple[str, str]] = []
+        total_attempts = max_retries + 1
         
         for i, url in enumerate(urls, 1):
-            print(f"\n[{i}/{len(urls)}] Processing: {url}")
-            path, err = take_screenshot(page, url, output_path, wait_time)
-            
-            if path:
-                successful += 1
+            last_err = None
+            for attempt in range(total_attempts):
+                if attempt > 0:
+                    print(f"  Retrying ({attempt + 1}/{total_attempts})...")
+                print(f"\n[{i}/{len(urls)}] Processing: {url}")
+                page = context.new_page()
+                try:
+                    path, err = take_screenshot(page, url, output_path, wait_time)
+                    if path:
+                        successful += 1
+                        break
+                    last_err = err
+                finally:
+                    page.close()
             else:
-                failed_list.append((url, err or "Unknown error"))
+                failed_list.append((url, last_err or "Unknown error"))
         
         browser.close()
         
@@ -390,10 +400,15 @@ def screenshot_sitemap(
         print(f"  Total: {len(urls)}")
         print(f"  Screenshots saved to: {output_path.absolute()}")
         if failed_list:
-            print(f"\nFailed URLs ({len(failed_list)}):")
-            for url, reason in failed_list:
-                print(f"  - {url}")
-                print(f"    Reason: {reason}")
+            failed_path = output_path / "failed_urls.txt"
+            with open(failed_path, "w", encoding="utf-8") as f:
+                for u, r in failed_list:
+                    f.write(f"{u}\n  Reason: {r}\n")
+            print(f"\nFailed URLs ({len(failed_list)}) written to {failed_path.name}")
+            for url, reason in failed_list[:5]:
+                print(f"  - {url}: {reason}")
+            if len(failed_list) > 5:
+                print(f"  ... and {len(failed_list) - 5} more (see {failed_path.name})")
 
 
 def main():
@@ -475,6 +490,14 @@ Examples:
         help='Start from this index (useful for resuming)'
     )
     
+    parser.add_argument(
+        '--retries',
+        type=int,
+        default=2,
+        metavar='N',
+        help='Retries per URL on failure (default: 2, so 3 total attempts)'
+    )
+    
     args = parser.parse_args()
     
     # If --url flag is used, screenshot just that URL
@@ -529,25 +552,40 @@ Examples:
                 viewport={'width': 1920, 'height': 1080},
                 user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
             )
-            page = context.new_page()
             successful = 0
             failed_list = []
+            total_attempts = args.retries + 1
             for i, url in enumerate(urls, 1):
-                print(f"\n[{i}/{len(urls)}] Processing: {url}")
-                path, err = take_screenshot(page, url, output_path, args.wait_time)
-                if path:
-                    successful += 1
+                last_err = None
+                for attempt in range(total_attempts):
+                    if attempt > 0:
+                        print(f"  Retrying ({attempt + 1}/{total_attempts})...")
+                    print(f"\n[{i}/{len(urls)}] Processing: {url}")
+                    page = context.new_page()
+                    try:
+                        path, err = take_screenshot(page, url, output_path, args.wait_time)
+                        if path:
+                            successful += 1
+                            break
+                        last_err = err
+                    finally:
+                        page.close()
                 else:
-                    failed_list.append((url, err or "Unknown error"))
+                    failed_list.append((url, last_err or "Unknown error"))
             browser.close()
             print(f"\n{'='*60}")
             print(f"Complete! Successful: {successful}, Failed: {len(failed_list)}, Total: {len(urls)}")
             print(f"Screenshots saved to: {output_path.absolute()}")
             if failed_list:
-                print(f"\nFailed URLs ({len(failed_list)}):")
-                for u, r in failed_list:
-                    print(f"  - {u}")
-                    print(f"    Reason: {r}")
+                failed_path = output_path / "failed_urls.txt"
+                with open(failed_path, "w", encoding="utf-8") as f:
+                    for u, r in failed_list:
+                        f.write(f"{u}\n  Reason: {r}\n")
+                print(f"\nFailed URLs ({len(failed_list)}) written to {failed_path.name}")
+                for u, r in failed_list[:5]:
+                    print(f"  - {u}: {r}")
+                if len(failed_list) > 5:
+                    print(f"  ... and {len(failed_list) - 5} more (see {failed_path.name})")
     elif args.sitemap:
         screenshot_sitemap(
             sitemap_path=args.sitemap,
@@ -555,7 +593,8 @@ Examples:
             headless=not args.no_headless,
             wait_time=args.wait_time,
             max_pages=args.max_pages,
-            start_from=args.start_from
+            start_from=args.start_from,
+            max_retries=args.retries,
         )
     else:
         parser.error("Provide a sitemap/homepage URL, use --url for a single URL, or --urls-file for a list")
