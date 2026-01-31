@@ -166,10 +166,15 @@ def get_status(task_id):
         return jsonify({"error": "Task not found"}), 404
     
     task = running_tasks[task_id]
+    task_dir = SCREENSHOTS_DIR / task_id
+    if task_dir.exists():
+        screenshot_count = len(list(task_dir.glob("*.png")))
+    else:
+        screenshot_count = task.get("screenshot_count", 0)
     response = {
         "status": task["status"],
         "output": task.get("output", [])[-1500:],  # Last 1500 lines
-        "screenshot_count": task.get("screenshot_count", 0)
+        "screenshot_count": screenshot_count,
     }
     
     if "error" in task:

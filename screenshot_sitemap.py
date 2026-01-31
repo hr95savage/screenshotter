@@ -297,6 +297,10 @@ def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) 
         return (None, reason)
 
 
+# Restart browser every N pages to avoid OOM on constrained environments (e.g. Railway)
+PAGES_PER_BROWSER = 12
+
+
 def screenshot_sitemap(
     sitemap_path: str,
     output_dir: str = "screenshots",
@@ -305,6 +309,7 @@ def screenshot_sitemap(
     max_pages: Optional[int] = None,
     start_from: int = 0,
     max_retries: int = 2,
+    pages_per_browser: int = PAGES_PER_BROWSER,
 ):
     """
     Main function to screenshot all pages in a sitemap.
@@ -359,38 +364,44 @@ def screenshot_sitemap(
     output_path.mkdir(parents=True, exist_ok=True)
     print(f"Saving screenshots to: {output_path.absolute()}")
     
-    # Launch browser
+    # Process URLs in batches; restart browser each batch to avoid OOM
     with sync_playwright() as p:
-        print("Launching browser...")
-        browser = p.chromium.launch(headless=headless)
-        context = browser.new_context(
-            viewport={'width': 1920, 'height': 1080},
-            user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        )
-        # Screenshot each URL with a fresh page per URL to limit memory use (avoids OOM kill)
         successful = 0
         failed_list: List[Tuple[str, str]] = []
         total_attempts = max_retries + 1
-        
-        for i, url in enumerate(urls, 1):
-            last_err = None
-            for attempt in range(total_attempts):
-                if attempt > 0:
-                    print(f"  Retrying ({attempt + 1}/{total_attempts})...")
-                print(f"\n[{i}/{len(urls)}] Processing: {url}")
-                page = context.new_page()
-                try:
-                    path, err = take_screenshot(page, url, output_path, wait_time)
-                    if path:
-                        successful += 1
-                        break
-                    last_err = err
-                finally:
-                    page.close()
-            else:
-                failed_list.append((url, last_err or "Unknown error"))
-        
-        browser.close()
+        idx = 0
+        while idx < len(urls):
+            batch = urls[idx:idx + pages_per_browser]
+            print("Launching browser...")
+            browser = p.chromium.launch(headless=headless)
+            context = browser.new_context(
+                viewport={'width': 1920, 'height': 1080},
+                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+            )
+            try:
+                for offset, url in enumerate(batch):
+                    i = idx + offset + 1
+                    last_err = None
+                    for attempt in range(total_attempts):
+                        if attempt > 0:
+                            print(f"  Retrying ({attempt + 1}/{total_attempts})...")
+                        print(f"\n[{i}/{len(urls)}] Processing: {url}")
+                        page = context.new_page()
+                        try:
+                            path, err = take_screenshot(page, url, output_path, wait_time)
+                            if path:
+                                successful += 1
+                                break
+                            last_err = err
+                        finally:
+                            page.close()
+                    else:
+                        failed_list.append((url, last_err or "Unknown error"))
+            finally:
+                browser.close()
+            idx += len(batch)
+            if idx < len(urls):
+                print(f"\nRestarting browser after {len(batch)} pages (memory)...")
         
         # Summary
         print(f"\n{'='*60}")
@@ -498,6 +509,14 @@ Examples:
         help='Retries per URL on failure (default: 2, so 3 total attempts)'
     )
     
+    parser.add_argument(
+        '--pages-per-browser',
+        type=int,
+        default=PAGES_PER_BROWSER,
+        metavar='N',
+        help=f'Restart browser every N pages to reduce memory (default: {PAGES_PER_BROWSER})'
+    )
+    
     args = parser.parse_args()
     
     # If --url flag is used, screenshot just that URL
@@ -547,32 +566,42 @@ Examples:
             urls = urls[args.start_from:]
             print(f"Starting from index {args.start_from}")
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=not args.no_headless)
-            context = browser.new_context(
-                viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-            )
             successful = 0
             failed_list = []
             total_attempts = args.retries + 1
-            for i, url in enumerate(urls, 1):
-                last_err = None
-                for attempt in range(total_attempts):
-                    if attempt > 0:
-                        print(f"  Retrying ({attempt + 1}/{total_attempts})...")
-                    print(f"\n[{i}/{len(urls)}] Processing: {url}")
-                    page = context.new_page()
-                    try:
-                        path, err = take_screenshot(page, url, output_path, args.wait_time)
-                        if path:
-                            successful += 1
-                            break
-                        last_err = err
-                    finally:
-                        page.close()
-                else:
-                    failed_list.append((url, last_err or "Unknown error"))
-            browser.close()
+            idx = 0
+            while idx < len(urls):
+                batch = urls[idx:idx + args.pages_per_browser]
+                print("Launching browser...")
+                browser = p.chromium.launch(headless=not args.no_headless)
+                context = browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+                )
+                try:
+                    for offset, url in enumerate(batch):
+                        i = idx + offset + 1
+                        last_err = None
+                        for attempt in range(total_attempts):
+                            if attempt > 0:
+                                print(f"  Retrying ({attempt + 1}/{total_attempts})...")
+                            print(f"\n[{i}/{len(urls)}] Processing: {url}")
+                            page = context.new_page()
+                            try:
+                                path, err = take_screenshot(page, url, output_path, args.wait_time)
+                                if path:
+                                    successful += 1
+                                    break
+                                last_err = err
+                            finally:
+                                page.close()
+                        else:
+                            failed_list.append((url, last_err or "Unknown error"))
+                finally:
+                    browser.close()
+                idx += len(batch)
+                if idx < len(urls):
+                    print(f"\nRestarting browser after {len(batch)} pages (memory)...")
             print(f"\n{'='*60}")
             print(f"Complete! Successful: {successful}, Failed: {len(failed_list)}, Total: {len(urls)}")
             print(f"Screenshots saved to: {output_path.absolute()}")
@@ -595,6 +624,7 @@ Examples:
             max_pages=args.max_pages,
             start_from=args.start_from,
             max_retries=args.retries,
+            pages_per_browser=args.pages_per_browser,
         )
     else:
         parser.error("Provide a sitemap/homepage URL, use --url for a single URL, or --urls-file for a list")
