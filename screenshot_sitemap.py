@@ -5,13 +5,14 @@ Takes full page screenshots of all pages listed in a website sitemap.
 """
 
 import argparse
+import json
 import os
 import sys
 import time
 import traceback
 import urllib.parse
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import xml.etree.ElementTree as ET
 
 from playwright.sync_api import sync_playwright, Browser, Page, TimeoutError as PlaywrightTimeoutError
@@ -297,6 +298,30 @@ def take_screenshot(page: Page, url: str, output_dir: Path, wait_time: int = 2) 
         return (None, reason)
 
 
+def _page_name_from_url(url: str) -> str:
+    """Derive a human-readable page name from a URL path."""
+    parsed = urllib.parse.urlparse(url)
+    path = parsed.path.strip('/')
+    if not path:
+        return 'Home'
+    # Take last segment, replace separators with spaces, title-case
+    segment = path.split('/')[-1]
+    segment = segment.replace('-', ' ').replace('_', ' ')
+    # Strip file extensions
+    for ext in ('.html', '.htm', '.php', '.asp', '.aspx'):
+        if segment.lower().endswith(ext):
+            segment = segment[:len(segment) - len(ext)]
+    return segment.title() if segment else 'Home'
+
+
+def write_manifest(output_dir: Path, manifest: Dict[str, dict]) -> None:
+    """Write manifest.json mapping screenshot filenames to source URLs."""
+    manifest_path = output_dir / "manifest.json"
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+    print(f"  Manifest written: {manifest_path.name} ({len(manifest)} entries)")
+
+
 # Restart browser every N pages to avoid OOM on constrained environments (e.g. Railway)
 PAGES_PER_BROWSER = 12
 
@@ -365,6 +390,7 @@ def screenshot_sitemap(
     print(f"Saving screenshots to: {output_path.absolute()}")
     
     # Process URLs in batches; restart browser each batch to avoid OOM
+    manifest: Dict[str, dict] = {}
     with sync_playwright() as p:
         successful = 0
         failed_list: List[Tuple[str, str]] = []
@@ -391,6 +417,11 @@ def screenshot_sitemap(
                             path, err = take_screenshot(page, url, output_path, wait_time)
                             if path:
                                 successful += 1
+                                fname = Path(path).name
+                                manifest[fname] = {
+                                    "url": url,
+                                    "title": _page_name_from_url(url),
+                                }
                                 break
                             last_err = err
                         finally:
@@ -403,6 +434,10 @@ def screenshot_sitemap(
             if idx < len(urls):
                 print(f"\nRestarting browser after {len(batch)} pages (memory)...")
         
+        # Write manifest
+        if manifest:
+            write_manifest(output_path, manifest)
+
         # Summary
         print(f"\n{'='*60}")
         print(f"Complete!")
@@ -537,6 +572,10 @@ Examples:
             browser.close()
             
             if path:
+                fname = Path(path).name
+                write_manifest(output_path, {
+                    fname: {"url": args.url, "title": _page_name_from_url(args.url)}
+                })
                 print(f"\n✓ Screenshot saved: {path}")
             else:
                 print(f"\n✗ Failed to take screenshot: {err}")
@@ -565,6 +604,7 @@ Examples:
         if args.start_from > 0:
             urls = urls[args.start_from:]
             print(f"Starting from index {args.start_from}")
+        manifest: Dict[str, dict] = {}
         with sync_playwright() as p:
             successful = 0
             failed_list = []
@@ -591,6 +631,11 @@ Examples:
                                 path, err = take_screenshot(page, url, output_path, args.wait_time)
                                 if path:
                                     successful += 1
+                                    fname = Path(path).name
+                                    manifest[fname] = {
+                                        "url": url,
+                                        "title": _page_name_from_url(url),
+                                    }
                                     break
                                 last_err = err
                             finally:
@@ -602,6 +647,9 @@ Examples:
                 idx += len(batch)
                 if idx < len(urls):
                     print(f"\nRestarting browser after {len(batch)} pages (memory)...")
+            # Write manifest
+            if manifest:
+                write_manifest(output_path, manifest)
             print(f"\n{'='*60}")
             print(f"Complete! Successful: {successful}, Failed: {len(failed_list)}, Total: {len(urls)}")
             print(f"Screenshots saved to: {output_path.absolute()}")

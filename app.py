@@ -263,6 +263,9 @@ def download_all(task_id):
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for png_file in png_files:
                 zipf.write(png_file, png_file.name)
+            manifest_file = task_dir / "manifest.json"
+            if manifest_file.exists():
+                zipf.write(manifest_file, manifest_file.name)
             failed_urls = task_dir / "failed_urls.txt"
             if failed_urls.exists():
                 zipf.write(failed_urls, failed_urls.name)
